@@ -1,0 +1,69 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "intuition-raycast",
+  "title": "Intuition",
+  "description": "Search the intuition knowledge graph",
+  "icon": "command-icon.png",
+  "type": "module",
+  "author": "0xjojikun",
+  "categories": [
+    "Data"
+  ],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "search-atoms",
+      "title": "Search Atoms",
+      "description": "Search atoms in the intuition knowledge graph",
+      "mode": "view"
+    },
+    {
+      "name": "search-triples",
+      "title": "Search Triples",
+      "description": "Search triples in the intuition knowledge graph",
+      "mode": "view"
+    },
+    {
+      "name": "intuition-menu",
+      "title": "Intuition Menu",
+      "description": "Quick access to Intuition search in the Menu Bar",
+      "mode": "menu-bar",
+      "subtitle": "Intuition",
+      "interval": "10m",
+      "preferences": [
+        {
+          "type": "checkbox",
+          "label": "Always Show",
+          "name": "alwaysShow",
+          "description": "Show the menu bar extra even when inactive",
+          "default": true,
+          "required": false
+        }
+      ]
+    }
+  ],
+  "dependencies": {
+    "@0xintuition/graphql": "file:../intuition-ts/dist/packages/graphql",
+    "@raycast/api": "^1.69.0",
+    "@raycast/utils": "^1.4.8",
+    "@tanstack/react-query": "^5.60.5",
+    "graphql": "^16.9.0",
+    "graphql-request": "^7.1.2",
+    "viem": "^2.21.45"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.6",
+    "@types/node": "20.8.10",
+    "@types/react": "18.2.27",
+    "eslint": "^8.51.0",
+    "prettier": "^3.0.3",
+    "typescript": "^5.2.2"
+  },
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}
