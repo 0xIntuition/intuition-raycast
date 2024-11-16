@@ -43,7 +43,6 @@
     }
   ],
   "dependencies": {
-    "@0xintuition/graphql": "file:../intuition-ts/dist/packages/graphql",
     "@raycast/api": "^1.69.0",
     "@raycast/utils": "^1.4.8",
     "@tanstack/react-query": "^5.60.5",
