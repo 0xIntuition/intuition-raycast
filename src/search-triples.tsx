@@ -1,40 +1,48 @@
 import { ActionPanel, Action, List, Image, Icon, Color } from "@raycast/api";
 import { useFetch } from "@raycast/utils";
 import { useState } from "react";
-import { formatEther } from "viem";
 import { GET_TRIPLES_QUERY } from "./lib/queries/triples";
-import { API_URL, PORTAL_URL } from "./lib/consts/general";
+import { API_URL, getTripleUrl } from "./lib/consts/general";
+import { truncateNumber, getShareValue, formatEthValue } from "./lib/utils/format";
 
 interface SearchResult {
   id: string;
-  label?: string;
   subject: {
+    id: string;
     image: string;
-    vaultId: string;
     label: string;
   };
   predicate: {
-    vaultId: string;
+    id: string;
     label: string;
   };
   object: {
-    vaultId: string;
+    id: string;
     label: string;
   };
-  counterVault: {
-    currentSharePrice: string;
-    positionCount: string;
-    totalShares: string;
+  creator?: {
+    id: string;
+    label?: string;
+    image?: string;
+  };
+  block_timestamp?: string;
+  counter_vault: {
+    current_share_price: string;
+    position_count: string;
+    total_shares: string;
   };
   vault: {
-    currentSharePrice: string;
-    positionCount: string;
-    totalShares: string;
+    current_share_price: string;
+    position_count: string;
+    total_shares: string;
   };
+  vault_id?: string;
+  counter_vault_id?: string;
 }
 
 export default function Command() {
   const [searchText, setSearchText] = useState("");
+  const [offset, setOffset] = useState(0);
   const { data, isLoading } = useFetch(API_URL, {
     method: "POST",
     headers: {
@@ -44,6 +52,7 @@ export default function Command() {
       query: GET_TRIPLES_QUERY,
       variables: {
         searchTerm: `%${searchText}%`,
+        offset: offset,
       },
     }),
     parseResponse: parseFetchResponse,
@@ -51,62 +60,44 @@ export default function Command() {
 
   return (
     <List isLoading={isLoading} onSearchTextChange={setSearchText} searchBarPlaceholder="Search triples..." throttle>
-      <List.Section title="Results" subtitle={data?.length + ""}>
-        {data?.map((searchResult) => <SearchListItem key={searchResult.id} searchResult={searchResult} />)}
+      <List.Section title="Results" subtitle={data?.totalCount ? `${truncateNumber(data.totalCount)}` : "0"}>
+        {data?.triples?.map((searchResult) => <SearchListItem key={searchResult.id} searchResult={searchResult} />)}
       </List.Section>
     </List>
   );
 }
 
 function SearchListItem({ searchResult }: { searchResult: SearchResult }) {
-  const totalPositiveStaked =
-    parseFloat(formatEther(BigInt(searchResult.vault?.totalShares || 0))) *
-    parseFloat(formatEther(BigInt(searchResult.vault?.currentSharePrice || 0)));
-  const totalNegativeStaked =
-    parseFloat(formatEther(BigInt(searchResult.counterVault?.totalShares || 0))) *
-    parseFloat(formatEther(BigInt(searchResult.counterVault?.currentSharePrice || 0)));
+  // Calculate ETH value using the getShareValue utility
+  const totalShares = BigInt(searchResult.vault?.total_shares || 0);
+  const sharePrice = BigInt(searchResult.vault?.current_share_price || 0);
+  const ethValue = getShareValue(totalShares, sharePrice);
+  const tripleUrl = getTripleUrl(searchResult.vault_id || searchResult.id);
+
+  // Format date if available
+  const createdDate = searchResult.block_timestamp
+    ? new Date(parseInt(searchResult.block_timestamp) * 1000).toLocaleDateString()
+    : "";
 
   return (
     <List.Item
-      title={searchResult.label ?? searchResult.id}
-      subtitle={searchResult.id}
+      title={`${searchResult.subject.label} ${searchResult.predicate.label} ${searchResult.object.label}`}
+      subtitle={`${searchResult.vault_id || "N/A"}`}
       icon={{
         source: searchResult.subject.image ?? "",
         mask: Image.Mask.Circle,
       }}
       accessories={[
-        {
-          icon: {
-            source: Icon.ArrowDown,
-            tintColor: totalNegativeStaked === 0 ? Color.SecondaryText : Color.Red,
-          },
-          text: {
-            value: `${totalNegativeStaked.toFixed(4)} ETH`,
-            color: totalNegativeStaked === 0 ? Color.SecondaryText : Color.Red,
-          },
-        },
-        {
-          icon: {
-            source: Icon.ArrowUp,
-            tintColor: totalPositiveStaked === 0 ? Color.SecondaryText : Color.Green,
-          },
-          text: {
-            value: `${totalPositiveStaked.toFixed(4)} ETH`,
-            color: totalPositiveStaked === 0 ? Color.SecondaryText : Color.Green,
-          },
-        },
+        { icon: Icon.ArrowUp, text: formatEthValue(ethValue) },
+        { icon: Icon.Person, text: truncateNumber(searchResult.vault?.position_count || "0") },
       ]}
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <Action.OpenInBrowser title="Open in Browser" url={`${PORTAL_URL}/app/claim/${searchResult.id}`} />
+            <Action.OpenInBrowser title="Open in Browser" url={tripleUrl} />
           </ActionPanel.Section>
           <ActionPanel.Section>
-            <Action.CopyToClipboard
-              title="Copy URL"
-              content={`${PORTAL_URL}/app/claim/${searchResult.id}`}
-              shortcut={{ modifiers: ["cmd"], key: "." }}
-            />
+            <Action.CopyToClipboard title="Copy URL" content={tripleUrl} shortcut={{ modifiers: ["cmd"], key: "." }} />
           </ActionPanel.Section>
         </ActionPanel>
       }
@@ -114,7 +105,6 @@ function SearchListItem({ searchResult }: { searchResult: SearchResult }) {
   );
 }
 
-/** Parse the response from the fetch query into something we can display */
 async function parseFetchResponse(response: Response) {
   const json = await response.json();
 
@@ -122,5 +112,26 @@ async function parseFetchResponse(response: Response) {
     throw new Error("message" in json ? json.message : response.statusText);
   }
 
-  return json.data.triples_aggregate.nodes as SearchResult[];
+  // Check for errors in the response
+  if (json.errors) {
+    console.error("GraphQL errors:", json.errors);
+    throw new Error(json.errors[0]?.message || "GraphQL error occurred");
+  }
+
+  // Check if data exists
+  if (!json.data) {
+    console.error("No data returned from API:", json);
+    return { triples: [], totalCount: 0 };
+  }
+
+  // Check if triples exists in data
+  if (!json.data.triples) {
+    console.error("No triples found in response:", json.data);
+    return { triples: [], totalCount: 0 };
+  }
+
+  return {
+    triples: json.data.triples as SearchResult[],
+    totalCount: json.data.triples_aggregate?.aggregate?.count || 0,
+  };
 }

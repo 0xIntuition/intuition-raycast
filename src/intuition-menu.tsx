@@ -1,4 +1,5 @@
 import { MenuBarExtra, Icon, launchCommand, LaunchType, openCommandPreferences } from "@raycast/api";
+import { EXPLORER_URL } from "./lib/consts/general";
 
 export default function Command() {
   return (
@@ -13,6 +14,11 @@ export default function Command() {
         title="Triples"
         icon={Icon.MagnifyingGlass}
         onAction={() => launchCommand({ name: "search-triples", type: LaunchType.UserInitiated })}
+      />
+      <MenuBarExtra.Item
+        title="Lists"
+        icon={Icon.List}
+        onAction={() => launchCommand({ name: "search-lists", type: LaunchType.UserInitiated })}
       />
       <MenuBarExtra.Item title="My Intuition" />
       <MenuBarExtra.Item

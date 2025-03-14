@@ -24,6 +24,12 @@
       "mode": "view"
     },
     {
+      "name": "search-lists",
+      "title": "Search Lists",
+      "description": "Search lists in the intuition knowledge graph",
+      "mode": "view"
+    },
+    {
       "name": "intuition-menu",
       "title": "Intuition Menu",
       "description": "Quick access to Intuition search in the Menu Bar",
@@ -46,6 +52,7 @@
     "@raycast/api": "^1.69.0",
     "@raycast/utils": "^1.4.8",
     "@tanstack/react-query": "^5.60.5",
+    "date-fns": "^4.1.0",
     "graphql": "^16.9.0",
     "graphql-request": "^7.1.2",
     "viem": "^2.21.45"
