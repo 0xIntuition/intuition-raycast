@@ -1,9 +1,10 @@
-import { ActionPanel, Action, List, Image, Icon } from "@raycast/api";
+import { ActionPanel, Action, List, Image, Icon, launchCommand, LaunchType } from "@raycast/api";
 import { useFetch } from "@raycast/utils";
-import { useState } from "react";
-import { API_URL, getListUrl } from "./lib/consts/general";
+import { useState, useEffect } from "react";
+import { getApiUrl, getListUrl } from "./lib/consts/general";
 import { GET_LISTS_QUERY } from "./lib/queries/lists";
 import { truncateNumber } from "./lib/utils/format";
+import AtomDetail from "./atom-detail";
 
 // Interface for list search results
 interface ListSearchResult {
@@ -19,7 +20,12 @@ interface ListSearchResult {
 export default function Command() {
   const [searchText, setSearchText] = useState("");
   const [offset, setOffset] = useState(0);
-  const { data, isLoading } = useFetch(API_URL, {
+  const [lists, setLists] = useState<ListSearchResult[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const apiUrl = getApiUrl();
+
+  const { data, isLoading, revalidate } = useFetch(apiUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -32,12 +38,48 @@ export default function Command() {
       },
     }),
     parseResponse: parseListsResponse,
+    onData: (data) => {
+      if (offset === 0) {
+        // Initial load or search change
+        setLists(data.lists);
+      } else {
+        // Loading more data
+        setLists((prevLists) => [...prevLists, ...data.lists]);
+      }
+      setTotalCount(data.totalCount);
+      setIsLoadingMore(false);
+    },
   });
 
+  // Reset offset when search text changes
+  useEffect(() => {
+    setOffset(0);
+  }, [searchText]);
+
+  // Handle loading more lists
+  const handleLoadMore = () => {
+    if (lists.length < totalCount) {
+      setIsLoadingMore(true);
+      setOffset(lists.length);
+    }
+  };
+
   return (
-    <List isLoading={isLoading} onSearchTextChange={setSearchText} searchBarPlaceholder="Search lists..." throttle>
-      <List.Section title="Lists" subtitle={data?.totalCount ? `${truncateNumber(data.totalCount)}` : "0"}>
-        {data?.lists?.map((list) => <ListItem key={list.object.id} list={list} />)}
+    <List
+      isLoading={isLoading && offset === 0}
+      onSearchTextChange={setSearchText}
+      searchBarPlaceholder="Search lists..."
+      throttle
+      pagination={{
+        onLoadMore: handleLoadMore,
+        hasMore: lists.length < totalCount,
+        pageSize: 10,
+      }}
+    >
+      <List.Section title="Lists" subtitle={totalCount ? `${truncateNumber(totalCount)}` : "0"}>
+        {lists.map((list) => (
+          <ListItem key={list.object.id} list={list} />
+        ))}
       </List.Section>
     </List>
   );
@@ -59,10 +101,25 @@ function ListItem({ list }: { list: ListSearchResult }) {
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <Action.OpenInBrowser title="Open in Browser" url={listUrl} />
+            <Action.Push
+              title="Search Within List"
+              icon={Icon.MagnifyingGlass}
+              target={<SearchWithinListWrapper listId={list.object.id} listName={list.object.label} />}
+            />
+            <Action.Push
+              title="View List Details"
+              icon={Icon.Sidebar}
+              target={<AtomDetail atomId={list.object.id} address="" />}
+            />
+            <Action.OpenInBrowser title="Open in Browser" url={listUrl} shortcut={{ modifiers: ["cmd"], key: "o" }} />
           </ActionPanel.Section>
           <ActionPanel.Section>
             <Action.CopyToClipboard title="Copy URL" content={listUrl} shortcut={{ modifiers: ["cmd"], key: "." }} />
+            <Action.CopyToClipboard
+              title="Copy ID"
+              content={list.object.id}
+              shortcut={{ modifiers: ["cmd", "shift"], key: "." }}
+            />
           </ActionPanel.Section>
         </ActionPanel>
       }
@@ -70,7 +127,29 @@ function ListItem({ list }: { list: ListSearchResult }) {
   );
 }
 
-// Parse the lists search response
+// Wrapper component to launch the search-within-list command
+function SearchWithinListWrapper({ listId, listName }: { listId: string; listName: string }) {
+  // Use useEffect to launch the command when the component mounts
+  useEffect(() => {
+    launchCommand({
+      name: "search-within-list",
+      type: LaunchType.UserInitiated,
+      arguments: {
+        listId,
+        listName,
+      },
+    });
+  }, [listId, listName]);
+
+  // Return a loading list as a placeholder
+  return (
+    <List isLoading={true}>
+      <List.EmptyView title={`Loading items in "${listName}"...`} />
+    </List>
+  );
+}
+
+// Parse the lists response
 async function parseListsResponse(response: Response) {
   const json = await response.json();
 

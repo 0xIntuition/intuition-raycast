@@ -10,6 +10,26 @@
     "Data"
   ],
   "license": "MIT",
+  "preferences": [
+    {
+      "name": "network",
+      "title": "Network",
+      "description": "Select which network to use for API requests",
+      "type": "dropdown",
+      "required": true,
+      "default": "base",
+      "data": [
+        {
+          "title": "Base Mainnet",
+          "value": "base"
+        },
+        {
+          "title": "Base Sepolia (Testnet)",
+          "value": "base-sepolia"
+        }
+      ]
+    }
+  ],
   "commands": [
     {
       "name": "search-atoms",
@@ -28,6 +48,13 @@
       "title": "Search Lists",
       "description": "Search lists in the intuition knowledge graph",
       "mode": "view"
+    },
+    {
+      "name": "search-within-list",
+      "title": "Search Within List",
+      "description": "Search for items within a specific list",
+      "mode": "view",
+      "hidden": true
     },
     {
       "name": "intuition-menu",

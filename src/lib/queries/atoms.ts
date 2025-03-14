@@ -38,3 +38,53 @@ export const GET_ATOMS_QUERY = gql`
     }
   }
 `;
+
+// Query for fetching atom details
+export const GET_ATOM_DETAIL_QUERY = gql`
+  query GetAtom($atomId: numeric!, $address: String) {
+    atom(id: $atomId) {
+      id
+      label
+      image
+      emoji
+      type
+      block_timestamp
+      creator {
+        id
+        label
+        image
+      }
+      vault {
+        id
+        total_shares
+        position_count
+        current_share_price
+      }
+      value {
+        thing {
+          description
+          image
+          name
+          url
+        }
+        person {
+          image
+          name
+          url
+          description
+        }
+        organization {
+          image
+          name
+          url
+          description
+        }
+      }
+      vault_id
+    }
+    
+    positions(where: { account_id: {_eq: $address}, vault_id: { _eq: $atomId} }, limit: 1) {
+      shares
+    }
+  }
+`;

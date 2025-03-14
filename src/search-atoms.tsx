@@ -1,9 +1,10 @@
 import { ActionPanel, Action, List, Image, Icon } from "@raycast/api";
 import { useFetch } from "@raycast/utils";
-import { useState } from "react";
-import { API_URL, getAtomUrl } from "./lib/consts/general";
+import { useState, useEffect } from "react";
+import { getApiUrl, getAtomUrl } from "./lib/consts/general";
 import { GET_ATOMS_QUERY } from "./lib/queries/atoms";
 import { truncateNumber, getShareValue, formatEthValue } from "./lib/utils/format";
+import AtomDetail from "./atom-detail";
 
 interface SearchResult {
   id: string;
@@ -27,7 +28,12 @@ interface SearchResult {
 export default function Command() {
   const [searchText, setSearchText] = useState("");
   const [offset, setOffset] = useState(0);
-  const { data, isLoading } = useFetch(API_URL, {
+  const [atoms, setAtoms] = useState<SearchResult[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const apiUrl = getApiUrl();
+
+  const { data, isLoading, revalidate } = useFetch(apiUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -40,12 +46,48 @@ export default function Command() {
       },
     }),
     parseResponse: parseFetchResponse,
+    onData: (data) => {
+      if (offset === 0) {
+        // Initial load or search change
+        setAtoms(data.atoms);
+      } else {
+        // Loading more data
+        setAtoms((prevAtoms) => [...prevAtoms, ...data.atoms]);
+      }
+      setTotalCount(data.totalCount);
+      setIsLoadingMore(false);
+    },
   });
 
+  // Reset offset when search text changes
+  useEffect(() => {
+    setOffset(0);
+  }, [searchText]);
+
+  // Handle loading more atoms
+  const handleLoadMore = () => {
+    if (atoms.length < totalCount) {
+      setIsLoadingMore(true);
+      setOffset(atoms.length);
+    }
+  };
+
   return (
-    <List isLoading={isLoading} onSearchTextChange={setSearchText} searchBarPlaceholder="Search atoms..." throttle>
-      <List.Section title="Results" subtitle={data?.totalCount ? `${truncateNumber(data.totalCount)}` : "0"}>
-        {data?.atoms?.map((searchResult) => <SearchListItem key={searchResult.id} searchResult={searchResult} />)}
+    <List
+      isLoading={isLoading && offset === 0}
+      onSearchTextChange={setSearchText}
+      searchBarPlaceholder="Search atoms..."
+      throttle
+      pagination={{
+        onLoadMore: handleLoadMore,
+        hasMore: atoms.length < totalCount,
+        pageSize: 10,
+      }}
+    >
+      <List.Section title="Results" subtitle={totalCount ? `${truncateNumber(totalCount)}` : "0"}>
+        {atoms.map((searchResult) => (
+          <SearchListItem key={searchResult.id} searchResult={searchResult} />
+        ))}
       </List.Section>
     </List>
   );
@@ -57,11 +99,12 @@ function SearchListItem({ searchResult }: { searchResult: SearchResult }) {
   const sharePrice = BigInt(searchResult.vault?.current_share_price || 0);
   const ethValue = getShareValue(totalShares, sharePrice);
   const atomUrl = getAtomUrl(searchResult.vault_id || searchResult.id);
+  const atomId = searchResult.vault_id || searchResult.id;
 
   return (
     <List.Item
       title={searchResult.label ?? searchResult.id}
-      subtitle={`${searchResult.vault_id || "N/A"}`}
+      subtitle={`${atomId}`}
       icon={{
         source: searchResult.image ?? "",
         mask: Image.Mask.Circle,
@@ -73,16 +116,23 @@ function SearchListItem({ searchResult }: { searchResult: SearchResult }) {
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <Action.OpenInBrowser title="Open in Browser" url={atomUrl} />
+            <Action.Push title="View Details" icon={Icon.Sidebar} target={<AtomDetail atomId={atomId} address="" />} />
+            <Action.OpenInBrowser title="Open in Browser" url={atomUrl} shortcut={{ modifiers: ["cmd"], key: "o" }} />
           </ActionPanel.Section>
           <ActionPanel.Section>
             <Action.CopyToClipboard title="Copy URL" content={atomUrl} shortcut={{ modifiers: ["cmd"], key: "." }} />
+            <Action.CopyToClipboard
+              title="Copy ID"
+              content={atomId}
+              shortcut={{ modifiers: ["cmd", "shift"], key: "." }}
+            />
           </ActionPanel.Section>
         </ActionPanel>
       }
     />
   );
 }
+
 async function parseFetchResponse(response: Response) {
   const json = await response.json();
 
