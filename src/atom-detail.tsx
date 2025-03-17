@@ -124,6 +124,7 @@ export default function AtomDetail({ atomId, address }: AtomDetailProps) {
   ${valueData.name ? `- **Name**: ${valueData.name}` : ""}
   ${valueData.description ? `- **Description**: ${valueData.description}` : ""}
   ${valueData.url ? `- **URL**: [${valueData.url}](${valueData.url})` : ""}
+  ${valueData.image ? `- **Image URL**: \`${valueData.image}\`` : ""}
   `
       : ""
   }
@@ -160,6 +161,7 @@ export default function AtomDetail({ atomId, address }: AtomDetailProps) {
           <Detail.Metadata>
             {atom.vault_id && <Detail.Metadata.Label title="Vault ID" text={atom.vault_id} />}
             {atom.type && <Detail.Metadata.Label title="Type" text={atom.type} />}
+            {atom.image && <Detail.Metadata.Link title="Image URL" text={atom.image} target={atom.image} />}
             <Detail.Metadata.Label title="Value" text={ethValue} />
             <Detail.Metadata.Label title="Positions" text={truncateNumber(atom.vault?.position_count || "0")} />
 
@@ -206,6 +208,11 @@ export default function AtomDetail({ atomId, address }: AtomDetailProps) {
             shortcut={{ modifiers: ["cmd", "shift"], key: "." }}
           />
           {valueData?.url && <Action.OpenInBrowser title="Visit Website" url={valueData.url} icon={Icon.Globe} />}
+          <Action.CopyToClipboard
+            title="Copy Row Cells"
+            content={`https://schema.org\tThing\t${valueData?.name || ""}\t${valueData?.description || ""}\t${valueData?.image || ""}\t${valueData?.url || ""}`}
+            shortcut={{ modifiers: ["cmd", "shift"], key: "," }}
+          />
         </ActionPanel>
       }
     />
