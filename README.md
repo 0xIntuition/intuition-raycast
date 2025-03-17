@@ -96,6 +96,7 @@ Before installing this extension, you'll need to set up a few things on your Mac
 ## Troubleshooting
 
 If you run into any issues:
+s
 
 1. Make sure Raycast is running (look for the Raycast icon in your menu bar)
 2. Try restarting Raycast
